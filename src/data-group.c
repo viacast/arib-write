@@ -3,10 +3,10 @@
 #include <arpa/inet.h>
 #include <assert.h>
 
-#include "data_group.h"
+#include "data-group.h"
 
 #include "crc-16.h"
-#include "PES_write.h"
+#include "PES-write.h"
 
 static void write_data_group_packet(FILE *out, uint8_t header,
 	uint8_t link_number, uint8_t last_link_number,

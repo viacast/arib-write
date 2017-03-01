@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
-#include "data_group.h"
+#include "data-group.h"
 
 // Encodes a control sequence, which are commands
 // preceeded by Control Sequence Introducer (CSI).

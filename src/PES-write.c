@@ -1,9 +1,10 @@
+#define _POSIX_C_SOURCE 199309L
 #include <time.h>
 #include <math.h>
 #include <assert.h>
 #include <arpa/inet.h>
 
-#include "PES_write.h"
+#include "PES-write.h"
 
 SegType seg_type = FULL_SEG;
 
