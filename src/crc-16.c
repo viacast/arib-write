@@ -1,48 +1,78 @@
 #include <stdlib.h>
+#include <assert.h>
 #include "crc-16.h"
 
-//Tested
-#define CRC16_DNP	0x3D65		// DNP, IEC 870, M-BUS, wM-BUS, ...
-#define CRC16_CCITT	0x1021		// X.25, V.41, HDLC FCS, Bluetooth, ...
+#define           poly     0x1021
 
-//Other polynoms not tested
-#define CRC16_IBM	0x8005		// ModBus, USB, Bisync, CRC-16, CRC-16-ANSI, ...
-#define CRC16_T10_DIF	0x8BB7		// SCSI DIF
-#define CRC16_DECT	0x0589		// Cordeless Telephones
-#define CRC16_ARINC	0xA02B		// ACARS Aplications
-
-#define POLYNOM		CRC16_CCITT   // Define the used polynom from one of the aboves
-
-static uint16_t crc16(uint16_t crcValue, uint8_t newByte) 
+/* based on CRC code found at
+http://srecord.sourceforge.net/crc16-ccitt.html
+*/
+uint16_t gen_crc16(const uint8_t *data, uint16_t len)
 {
-	for (uint8_t i = 0; i < 8; i++) {
+	//uint16_t crc = (((uint16_t)data[0]) << 8) | data[1];
+	uint16_t crc = 0x0000;
+	unsigned short i, v, xor_flag;
 
-		if (((crcValue & 0x8000) >> 8) ^ (newByte & 0x80)){
-			crcValue = (crcValue << 1)  ^ POLYNOM;
-		}else{
-			crcValue = (crcValue << 1);
+	for(size_t c = 0; c < len; ++c) 
+	{
+		uint8_t ch = data[c];
+
+		/*
+		Align test bit with leftmost bit of the message byte.
+		*/
+		v = 0x80;
+
+		for (i=0; i<8; i++)
+		{
+			if (crc & 0x8000)
+			{
+				xor_flag= 1;
+			}
+			else
+			{
+				xor_flag= 0;
+			}
+			crc = crc << 1;
+
+			if (ch & v)
+			{
+				/*
+				Append next bit of message to end of CRC if it is not zero.
+				The zero bit placed there by the shift above need not be
+				changed if the next bit of the message is zero.
+				*/
+				crc = crc + 1;
+			}
+
+			if (xor_flag)
+			{
+				crc = crc ^ poly;
+			}
+
+			/*
+			Align test bit with next bit of the message byte.
+			*/
+			v = v >> 1;
 		}
-
-		newByte <<= 1;
-	}
-  
-	return crcValue;
-}
-
-uint16_t gen_crc16(const uint8_t *Data, uint16_t len)
-{
-	unsigned int crc;
-	unsigned char aux = 0;
-
-	crc = 0x0000; //Initialization of crc to 0x0000 for DNP
-	//crc = 0xFFFF; //Initialization of crc to 0xFFFF for CCITT
-
-	while (aux < len){
-		crc = crc16(crc,Data[aux]);
-		aux++;
 	}
 
-	//return (~crc); //The crc value for DNP it is obtained by NOT operation
+	for (i=0; i<16; i++)
+    {
+        if (crc & 0x8000)
+        {
+            xor_flag= 1;
+        }
+        else
+        {
+            xor_flag= 0;
+        }
+        crc = crc << 1;
 
-	return crc; //The crc value for CCITT
+        if (xor_flag)
+        {
+            crc = crc ^ poly;
+        }
+    }
+
+	return crc;
 }

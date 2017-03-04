@@ -31,7 +31,7 @@ static void write_data_group_packet(FILE *out, uint8_t header,
 	memcpy(&buf[5], data, size);
 
 	// CRC_16
-	uint16_t crc = ntohs(gen_crc16(data, size + 5));
+	uint16_t crc = ntohs(gen_crc16(buf, size + 5));
 	memcpy(&buf[size+5], &crc, sizeof crc);
 
 	PES_write(out, sizeof buf, buf);
@@ -157,8 +157,8 @@ void write_data_unit(FILE *out, CaptionDataType cd_type,
 	memcpy(&buf[5], data, data_size);
 
 	if(cd_type == NEW_MANAGEMENT || cd_type == OLD_MANAGEMENT) {
-		write_caption_management_data(out, cd_type, sizeof buf, data);
+		write_caption_management_data(out, cd_type, sizeof buf, buf);
 	} else {
-		write_caption_statement_data(out, cd_type, sizeof buf, data);
+		write_caption_statement_data(out, cd_type, sizeof buf, buf);
 	}
 }
