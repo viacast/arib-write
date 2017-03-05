@@ -8,7 +8,7 @@ MODULES := \
 
 # Comment/uncoment for debug/release build
 #CFLAGS := -std=c11 -Ofast -flto -DNDEBUG
-CFLAGS := -std=c11 -Wall -Wextra -g
+CFLAGS := -std=c11 -Wall -Wextra -g -pthread
 
 LIBS := -lm
 

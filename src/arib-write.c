@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "timer.h"
 
@@ -38,6 +39,16 @@ static void write_caption_management_data(FILE *out)
 	buffer_write(&data, out);
 
 	buffer_destroy(&data);
+}
+
+static void *caption_writer_thread(void *par)
+{
+	FILE *out = par;
+	for(;;) {
+		write_caption_management_data(out);
+		sleep(1);
+	}
+	return NULL;
 }
 
 static void subtitle_boilerplate(Buffer *data)
@@ -141,13 +152,15 @@ static void write_full_subtitle(FILE *out,
 
 int main()
 {
+	pthread_t cwriter;
+	pthread_create(&cwriter, NULL, caption_writer_thread, stdout);
+	pthread_detach(cwriter);
+	sleep_for(0.5);
+
 	for(size_t i = 0;; ++i) {
-		write_caption_management_data(stdout);
-		if(i % 10 == 1) {
-			char msg[50];
-			snprintf(msg, 50, "\x1d\x21 pele de cobra %zd \x1d\x21", i/10);
-			write_full_subtitle(stdout, strlen(msg), msg);
-		}
-		sleep(1);
+		char msg[4096];
+		snprintf(msg, 50, "\x1d\x21 pele de cobra %zd \x1d\x21", i);
+		write_full_subtitle(stdout, strlen(msg), msg);
+		sleep(10);
 	}
 }
