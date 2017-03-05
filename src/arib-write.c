@@ -7,7 +7,7 @@
 #include <iconv.h>
 
 #include "timer.h"
-
+#include "PES-write.h"
 #include "data-group.h"
 
 // Encodes a control sequence, which are commands
@@ -169,16 +169,39 @@ static size_t getline(char *buf, size_t size, FILE *f)
 	return count;
 }
 
-int main()
+static void spawn_caption_writer()
 {
 	pthread_t cwriter;
 	pthread_create(&cwriter, NULL, caption_writer_thread, stdout);
 	pthread_detach(cwriter);
 	sleep_for(0.5);
+}
+
+int main(int argc, char *argv[])
+{
+	extern SegType seg_type;
+	uint8_t debug = 0;
+	for(int i = 1; i < argc; ++i) {
+		if(strcmp(argv[i], "--one-seg") == 0) {
+			seg_type = ONE_SEG;
+		} else if(strcmp(argv[i], "-d") == 0) {
+			debug = 1;
+		}
+	}
+
+	fprintf(stderr, "Generating %s-seg PES.\n",
+		seg_type == ONE_SEG ? "one" : "full");
+
+	if(debug) {
+		fputs("Debug mode.\n", stderr);
+	}
+
+	spawn_caption_writer();
 
 	iconv_t cd = iconv_open("l1", "utf8");
 
 	for(;;) {
+		char orig[2][4096] = {{0}, {0}};
 		char msg[4096];
 		uint16_t count = 0;
 		uint8_t line_count = 0;
@@ -191,8 +214,11 @@ int main()
 			size_t n;
 			{
 				size_t remsize = 4095 - ncount;
-				char buf[remsize];
+				char *buf = orig[line_count];
 				size_t bn = getline(buf, remsize, stdin);
+				if(bn == 0) {
+					return 1;
+				}
 
 				char *in = buf;
 				char *out = &msg[ncount];
@@ -208,6 +234,9 @@ int main()
 			}
 			count = ncount + n;
 			++line_count;
+		}
+		if(debug) {
+			fprintf(stderr, "Sending subtitle:\n%s%s\n", orig[0], orig[1]);
 		}
 		write_full_subtitle(stdout, count, msg);
 	}
