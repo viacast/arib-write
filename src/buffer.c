@@ -73,6 +73,8 @@ void buffer_write(const Buffer *const buf, FILE *out)
 		fwrite(l->data, 1, l->size, out);
 		l = l->next;
 	}
+
+	fflush(out);
 }
 
 void buffer_chop_head(Buffer *buf, size_t size, Buffer *head)

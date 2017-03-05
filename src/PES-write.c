@@ -1,36 +1,16 @@
-#define _POSIX_C_SOURCE 199309L
-#include <time.h>
+
 #include <math.h>
 #include <assert.h>
 #include <arpa/inet.h>
+#include <string.h>
+
+#include "timer.h"
 
 #include "PES-write.h"
 
 SegType seg_type = FULL_SEG;
 
-static double time_now()
-{
-	struct timespec t;
-	clock_gettime(CLOCK_MONOTONIC_RAW, &t);
-
-	return t.tv_sec + (1e-9 * t.tv_nsec);
-}
-
-static void sleep_for(const double duration)
-{
-	struct timespec req;
-	struct timespec rem;
-
-	double full_secs;
-	req.tv_nsec = (long)(modf(duration, &full_secs) * 1e9);
-	req.tv_sec = (time_t)full_secs;
-
-	while(nanosleep(&req, &rem) != 0) {
-		req = rem;
-	}
-}
-
-static void write_PTS(FILE *out)
+static void set_PTS(uint8_t *out)
 {
 	static double ref_time = 0.0;
 	uint64_t pts;
@@ -42,18 +22,16 @@ static void write_PTS(FILE *out)
 		pts = 0;
 	}
 
-	putc( 0b00100001 |
-		 (0b00001110 & (pts >> 29)),
-		 out);
+	out[0] = 0b00100001 | (0b00001110 & (pts >> 29));
 
-	putc(0xff & (pts >> 22), out);
-	putc(1 | (0b11111110 & (pts >> 14)), out);
+	out[1] = 0xff & (pts >> 22);
+	out[2] = 1 | (0b11111110 & (pts >> 14));
 
-	putc(0xff & (pts >> 7), out);
-	putc(1 | (0b11111110 & (pts << 1)), out);
+	out[3] = 0xff & (pts >> 7);
+	out[4] = 1 | (0b11111110 & (pts << 1));
 }
 
-static void write_single_PES(FILE *out, Buffer *data)
+static void PES_packet(Buffer *data)
 {
 	const size_t payload_size = buffer_get_size(data);
 
@@ -63,82 +41,72 @@ static void write_single_PES(FILE *out, Buffer *data)
 	// 32 KB - 35 bytes = 32733 bytes.
 	assert(payload_size <= 32733);
 
-	// Also according ARIB TR-B14, Fascicle 2, Section 4.2.2,
-	// minimum interval between PES packets is 100 ms, 
-	// so if last time a PES packet was sent is less than
-	// 100 ms, sleep through the time difference.
-	static double last_time = 0.0;
-	{
-		double diff = time_now() - last_time;
-		if(diff < 0.100) {
-			sleep_for(0.100 - diff);
-		}
-	}
+	uint8_t *buf = buffer_prepend(data, 35);
 
 	// From ISO 13818-1, section 2.4.3.6, PES packet:
 
 	// packet_start_code_prefix
-	fwrite("\x00\x00\x01", 1, 3, out);
+	memcpy(&buf[0], "\x00\x00\x01", 3);
 
 	// stream_id == private_stream_1
 	// as specified in ARIB STD B24 Volume 3, section 5.1
-	putc(0xBD, out);
+	buf[3] = 0xBD;
 
 	// PES_packet_length
-	const uint16_t length = htons((3 + 23 + 3) + payload_size);
-	fwrite(&length, 2, 1, out);
+	const uint16_t length = htons(29 + payload_size);
+	memcpy(&buf[4], &length, sizeof length);
 
 	// '10', PES_scrambling_control (not scrambled),
 	// PES_priority (normal priority), data_alignment_indicator (no),
 	// copyright (no), original_or_copy (copy)
-	putc(0b10000000, out);
+	buf[6] = 0b10000000;
 
 	// PTS_DTS_flags (PTS only), ESCR_flag (no),
 	// ES_rate_flag (no), DSM_trick_mode_flag (no),
 	// additional_copy_info_flag (no), PES_CRC_flag (no TODO)
 	// PES_extension_flag (yes)
-	putc(0b10000001, out);
+	buf[7] = 0b10000001;
 
 	// PES_header_data_length
 	// The number of bytes following in PES header,
 	// up to stuffing_byte.
-	putc(23, out);
+	buf[8] = 23;
 
 	// PTS data
-	write_PTS(out);
+	set_PTS(&buf[9]);
 
 	// PES_private_data_flag (yes), pack_header_field_flags (no),
 	// program_packet_sequence_counter_flag (no), P-STD_buffer_flag (no),
 	// '111', PES_extension_flag_2 (no)
-	putc(0b10001110, out);
+	buf[14] = 0b10001110;
 
 	// PES_private_data, as defined in ABNT NBR 15608-3:2008
 	switch(seg_type) {
 	case FULL_SEG:
 		// Section A.1, unused PES_private_data
-		for(uint8_t i = 0; i < 16; ++i) {
-			putc(0xff, out);
+		for(uint8_t i = 15; i < 31; ++i) {
+			buf[i] = 0xff;
 		}
 		break;
 	case ONE_SEG:
 		// Section A.2, PES_private_data as CIS:
 		// CCIS_code
-		fwrite("CCIS", 1, 4, out);
+		memcpy(&buf[15], "CCIS", 4);
 
 		// Caption_conversion_type (mobile)
-		putc(0x04, out);
+		buf[16] = 0x04;
 
 		// DRCS_conversion_type (mobile DRCS), '111111'
-		putc(0b10111111, out);
+		buf[17] = 0b10111111;
 
 		// Unused 10 bytes
-		for(uint8_t i = 0; i < 10; ++i) {
-			putc(0xff, out);
+		for(uint8_t i = 18; i < 31; ++i) {
+			buf[i] = 0xff;
 		}
 	}
 
 	// stuffing_byte
-	putc(0xff, out);
+	buf[31] = 0xff;
 
 	// Multiple PES_packet_data_byte:
 	// This the actual PES payload, the following is defined in:
@@ -146,29 +114,25 @@ static void write_single_PES(FILE *out, Buffer *data)
 	// - ARIB STD B37, Table 2-25
 	
 	// Data_identifier:
-	putc(0x80, out);
+	buf[32] = 0x80;
 
 	// Private_stream_id:
-	putc(0xff, out);
+	buf[33] = 0xff;
 
 	// Reserverd ('1111'), PES_data_packet_header_length ('0000')
-	putc(0b11110000, out);
-
-	// Write the payload
-	buffer_write(data, out);
-	fflush(out);
-
-	last_time = time_now();
+	buf[34] = 0b11110000;
 }
 
-void PES_write(FILE *out, Buffer *data)
+void PES_packetize(Buffer *data)
 {
+	/* // TODO fix packetization...
 	while(buffer_get_size(data) > 32733) {
 		Buffer head;
 		buffer_chop_head(data, 32733, &head);
-		write_single_PES(out, &head);
+		PES_packet(&head);
 		buffer_destroy(&head);
-	}
+	} */
 
-	write_single_PES(out, data);
+	assert(buffer_get_size(data) <= 32733);
+	PES_packet(data);
 }

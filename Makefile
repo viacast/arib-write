@@ -3,7 +3,8 @@ MODULES := \
 	PES-write \
 	arib-write \
 	buffer \
-	data-group
+	data-group \
+	timer
 
 # Comment/uncoment for debug/release build
 #CFLAGS := -std=c11 -Ofast -flto -DNDEBUG
@@ -17,7 +18,7 @@ SRC := $(addsuffix .c, $(addprefix src/,$(MODULES)))
 OBJS := $(addsuffix .o, $(addprefix build/,$(MODULES)))
 DEPS := $(addsuffix .d, $(addprefix deps/,$(MODULES)))
 
-.PHONY : clean
+.PHONY : clean flags
 
 arib-write: $(OBJS) | build
 	$(CC) -o arib-write $(CFLAGS) $(OBJS) $(LIBS)
@@ -33,6 +34,9 @@ build:
 
 deps:
 	mkdir deps
+
+flags:
+	@echo $(CFLAGS)
 
 clean:
 	-rm -rf build deps arib-write

@@ -13,4 +13,4 @@ enum SegType
 typedef enum SegType SegType;
 extern SegType seg_type;
 
-void PES_write(FILE *out, Buffer *data);
+void PES_packetize(Buffer *data);

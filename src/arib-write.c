@@ -1,6 +1,11 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <assert.h>
+
+#include "timer.h"
+
 #include "data-group.h"
 
 // Encodes a control sequence, which are commands
@@ -20,11 +25,24 @@ static size_t encode_cs(uint8_t *to, uint8_t final,
 	return i;
 }
 
-void write_full_subtitle(FILE *out,
-	size_t msg_size, const uint8_t *msg)
+static void write_caption_management_data(FILE *out)
 {
 	Buffer data;
-	uint8_t *buf = buffer_init(&data, msg_size + 53);
+
+	buffer_init(&data, 0);
+	caption_management_data(OLD_MANAGEMENT, &data);
+
+	// This packet should have small fixed size below 184 bytes
+	// and cause no trouble with divided CRC bytes.
+	assert(buffer_get_size(&data) <= 184);
+	buffer_write(&data, out);
+
+	buffer_destroy(&data);
+}
+
+static void subtitle_boilerplate(Buffer *data)
+{
+	uint8_t *buf = buffer_prepend(data, 53);
 
 	size_t i = 0;
 
@@ -77,20 +95,54 @@ void write_full_subtitle(FILE *out,
 
 	assert(i == 53);
 
-	memcpy(&buf[i], msg, msg_size);
+	data_unit(STATEMENT_1, STATEMENT_BODY, data);
+}
 
-	write_data_unit(out, STATEMENT_1, STATEMENT_BODY, &data);
+static void write_full_subtitle(FILE *out,
+	const size_t msg_size, const char *const msg)
+{
+	Buffer data;
+
+	// Ensures the 2 CRC bytes in caption data_group is
+	// not split by the TS packetizer.
+	uint8_t padding = 0;
+	for(;;) {
+		uint8_t *buf = buffer_init(&data, msg_size + padding);
+		memcpy(buf, msg, msg_size);
+		memset(buf + msg_size, 0, padding);
+
+		subtitle_boilerplate(&data);
+
+		if((buffer_get_size(&data) % 184) != 1) {
+			break;
+		}
+
+		buffer_destroy(&data);
+		++padding;
+	}
+
+	// Also according ARIB TR-B14, Fascicle 2, Section 4.2.2,
+	// minimum interval between PES packets is 100 ms, 
+	// so if last time a PES packet was sent is less than
+	// 100 ms, sleep through the time difference.
+	static double last_time = 0.0;
+	{
+		double diff = time_now() - last_time;
+		if(diff < 0.100) {
+			sleep_for(0.100 - diff);
+		}
+	}
+	buffer_write(&data, out);
+
+	last_time = time_now();
 
 	buffer_destroy(&data);
 }
 
 int main()
 {
-	Buffer empty;
 	for(size_t i = 0;; ++i) {
-		buffer_init(&empty, 0);
-		write_caption_management_data(stdout, OLD_MANAGEMENT, &empty);
-		buffer_destroy(&empty);
+		write_caption_management_data(stdout);
 		if(i % 10 == 1) {
 			char msg[50];
 			snprintf(msg, 50, "\x1d\x21 pele de cobra %zd \x1d\x21", i/10);

@@ -31,8 +31,6 @@ enum DataUnitType
 };
 typedef enum DataUnitType DataUnitType;
 
-void write_caption_management_data(FILE *out, CaptionDataType cd_type,
-	Buffer *data);
+void caption_management_data(CaptionDataType cd_type, Buffer *data);
 
-void write_data_unit(FILE *out, CaptionDataType cd_type,
-	DataUnitType du_type, Buffer *data);
+void data_unit(CaptionDataType cd_type, DataUnitType du_type, Buffer *data);
