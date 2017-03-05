@@ -1,8 +1,11 @@
-#include "buffer.h"
-
+#define _POSIX_C_SOURCE 199309L
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <sys/uio.h>
+
+#include "buffer.h"
 
 struct BufferLink
 {
@@ -30,6 +33,8 @@ uint8_t *buffer_init(Buffer *const buf, const size_t size)
 	buf->head = blink;
 	buf->last = &blink->next;
 
+	buf->nchunks = 1;
+
 	return blink->data;
 }
 
@@ -51,6 +56,7 @@ uint8_t *buffer_append(Buffer *const buf, const size_t size)
 	buf->last = &l->next;
 
 	buf->total_size += size;
+	++buf->nchunks;
 
 	return l->data;
 }
@@ -62,19 +68,24 @@ uint8_t *buffer_prepend(Buffer *const buf, const size_t size)
 	buf->head = l;
 
 	buf->total_size += size;
+	++buf->nchunks;
 
 	return l->data;
 }
 
 void buffer_write(const Buffer *const buf, FILE *out)
 {
-	BLink *l = buf->head;
-	while(l) {
-		fwrite(l->data, 1, l->size, out);
-		l = l->next;
-	}
+	struct iovec iov[buf->nchunks];
 
-	fflush(out);
+	BLink *l = buf->head;
+	size_t i = 0;
+	while(l) {
+		iov[i].iov_base = l->data;
+		iov[i].iov_len = l->size;
+		l = l->next;
+		++i;
+	}
+	writev(fileno(out), iov, buf->nchunks);
 }
 
 void buffer_chop_head(Buffer *buf, size_t size, Buffer *head)
@@ -86,6 +97,8 @@ void buffer_chop_head(Buffer *buf, size_t size, Buffer *head)
 
 	BLink *l = head->head = buf->head;
 	size_t count = l->size;
+	--buf->nchunks;
+	++head->nchunks;
 	
 	while(count < size) {
 		l = l->next;
@@ -103,6 +116,7 @@ void buffer_chop_head(Buffer *buf, size_t size, Buffer *head)
 		nl->next = l->next;
 		buf->head = nl;
 		buf->last = &nl->next;
+		++buf->nchunks;
 	} else {
 		assert(l->next);
 		buf->head = l->next;

@@ -6,6 +6,7 @@
 // Linked list of arrays to use as buffer.
 struct Buffer
 {
+	size_t nchunks;
 	size_t total_size;
 	struct BufferLink *head;
 	struct BufferLink **last;
