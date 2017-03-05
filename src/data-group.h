@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include "buffer.h"
 
 enum CaptionDataType
 {
@@ -31,7 +32,7 @@ enum DataUnitType
 typedef enum DataUnitType DataUnitType;
 
 void write_caption_management_data(FILE *out, CaptionDataType cd_type,
-	uint32_t data_size, const uint8_t *data);
+	Buffer *data);
 
 void write_data_unit(FILE *out, CaptionDataType cd_type,
-	DataUnitType du_type, uint32_t data_size, const uint8_t *data);
+	DataUnitType du_type, Buffer *data);

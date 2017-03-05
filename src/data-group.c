@@ -5,40 +5,39 @@
 
 #include "data-group.h"
 
-#include "crc-16.h"
 #include "PES-write.h"
 
 static void write_data_group_packet(FILE *out, uint8_t header,
-	uint8_t link_number, uint8_t last_link_number,
-	uint16_t size, const uint8_t *data)
+	uint8_t link_number, uint8_t last_link_number, Buffer *data)
 {
-	uint8_t buf[size + 7];
+	size_t size = buffer_get_size(data);
+
+	// Header bytes
+	uint8_t *h = buffer_prepend(data, 5);
 
 	// data_group_id, data_group_version
-	buf[0] = header;
+	h[0] = header;
 
 	// data_group_link_number
-	buf[1] = link_number;
+	h[1] = link_number;
 
 	// last_data_group_link_number
-	buf[2] = last_link_number;
+	h[2] = last_link_number;
 
 	// data_group_size, in big-endian
-	buf[3] = size >> 8;
-	buf[4] = size & 0xff;
+	assert(size <= 0xffff);
+	h[3] = size >> 8;
+	h[4] = size & 0xff;
 
-	// Bytes in data_group_data_byte
-	memcpy(&buf[5], data, size);
+	// CRC_16 bytes
+	uint16_t crc = buffer_CRC16(data);
+	*((uint16_t *)buffer_append(data, 2)) = ntohs(crc);
 
-	// CRC_16
-	uint16_t crc = ntohs(gen_crc16(buf, size + 5));
-	memcpy(&buf[size+5], &crc, sizeof crc);
-
-	PES_write(out, sizeof buf, buf);
+	PES_write(out, data);
 }
 
 static void data_group_packetize(FILE *out, CaptionDataType cdt,
-	size_t size, const uint8_t *data)
+	Buffer *data)
 {
 	// Assemble data group chain as described in ARIB STD-B24, Chapter 9
 	static bool groupB = false;
@@ -55,6 +54,7 @@ static void data_group_packetize(FILE *out, CaptionDataType cdt,
 		data_group_id += 0x20;
 	}
 
+	const size_t size = buffer_get_size(data);
 	assert(size / UINT16_MAX < 256
 			|| (size / UINT16_MAX == 256 && size % UINT16_MAX == 0));
 
@@ -63,12 +63,15 @@ static void data_group_packetize(FILE *out, CaptionDataType cdt,
 	const uint8_t last_piece = size / UINT16_MAX - 1
 		+ ((size % UINT16_MAX) != 0);
 
-	for(uint8_t i = 0; size > 0; ++i) {
-		const uint16_t piece_size = size > UINT16_MAX ? UINT16_MAX : size;
-		write_data_group_packet(out, header, i, last_piece, piece_size, data);
-		size -= piece_size;
-		data += piece_size;
+	uint8_t i = 0;
+	while(size > UINT16_MAX) {
+		Buffer head;
+		buffer_chop_head(data, UINT16_MAX, &head);
+
+		write_data_group_packet(out, header, i++, last_piece, &head);
+		buffer_destroy(&head);
 	}
+	write_data_group_packet(out, header, i, last_piece, data);
 	// TODO: ensure the 2 CRC bytes in caption data_group is
 	// not split by TS packetizer.
 }
@@ -85,12 +88,14 @@ static void set_3_byte_data(uint8_t *to, uint32_t value)
 }
 
 void write_caption_management_data(FILE *out, CaptionDataType cd_type,
-	uint32_t data_size, const uint8_t *data)
+	Buffer *data)
 {
 	// Struct from ARIB STD-B24, Table 9-3
+	const size_t data_size = buffer_get_size(data);
 	assert(cd_type == NEW_MANAGEMENT || cd_type == OLD_MANAGEMENT);
+	assert(data_size < 0xffffff);
 
-	uint8_t buf[data_size + 10];
+	uint8_t *buf = buffer_prepend(data, 10);
 
 	// TMD (free), '111111'
 	buf[0] = 0b00111111;
@@ -110,20 +115,19 @@ void write_caption_management_data(FILE *out, CaptionDataType cd_type,
 	// data_unit_loop_length
 	set_3_byte_data(&buf[7], data_size);
 
-	// data_unit bytes
-	memcpy(&buf[10], data, data_size);
-
-	data_group_packetize(out, cd_type, sizeof buf, buf);
+	data_group_packetize(out, cd_type, data);
 }
 
 static void write_caption_statement_data(FILE *out, CaptionDataType cd_type,
-	uint32_t data_size, const uint8_t *data)
+	Buffer *data)
 {
 	// Struct from ARIB STD-B24, Table 9-10
+	const size_t data_size = buffer_get_size(data);
 	assert(cd_type != NEW_MANAGEMENT && cd_type != OLD_MANAGEMENT);
 	assert(data_size > 0);
+	assert(data_size < 0xffffff);
 
-	uint8_t buf[data_size + 4];
+	uint8_t *buf = buffer_prepend(data, 4);
 
 	// TMD (free), '111111'
 	buf[0] = 0b00111111;
@@ -131,18 +135,15 @@ static void write_caption_statement_data(FILE *out, CaptionDataType cd_type,
 	// data_unit_loop_length
 	set_3_byte_data(&buf[1], data_size);
 
-	// data_unit bytes
-	memcpy(&buf[4], data, data_size);
-
-	data_group_packetize(out, cd_type, sizeof buf, buf);
+	data_group_packetize(out, cd_type, data);
 }
 
 void write_data_unit(FILE *out, CaptionDataType cd_type,
-	DataUnitType du_type, uint32_t data_size, const uint8_t *data)
+	DataUnitType du_type, Buffer *data)
 {
 	// Struct from ARIB STD-B24, Table 9-11
-
-	uint8_t buf[data_size + 5];
+	const size_t data_size = buffer_get_size(data);
+	uint8_t *buf = buffer_prepend(data, 5);
 
 	// unit_separator
 	buf[0] = 0x1f;
@@ -153,12 +154,9 @@ void write_data_unit(FILE *out, CaptionDataType cd_type,
 	// data_unit_size
 	set_3_byte_data(&buf[2], data_size);
 
-	// Bytes in data_unit_data_byte
-	memcpy(&buf[5], data, data_size);
-
 	if(cd_type == NEW_MANAGEMENT || cd_type == OLD_MANAGEMENT) {
-		write_caption_management_data(out, cd_type, sizeof buf, buf);
+		write_caption_management_data(out, cd_type, data);
 	} else {
-		write_caption_statement_data(out, cd_type, sizeof buf, buf);
+		write_caption_statement_data(out, cd_type, data);
 	}
 }

@@ -23,7 +23,9 @@ static size_t encode_cs(uint8_t *to, uint8_t final,
 void write_full_subtitle(FILE *out,
 	size_t msg_size, const uint8_t *msg)
 {
-	uint8_t buf[msg_size + 53];
+	Buffer data;
+	uint8_t *buf = buffer_init(&data, msg_size + 53);
+
 	size_t i = 0;
 
 	// Control codes are defined in both ABNT NBR 15606-1, Tabela 13
@@ -77,18 +79,23 @@ void write_full_subtitle(FILE *out,
 
 	memcpy(&buf[i], msg, msg_size);
 
-	write_data_unit(out, STATEMENT_1, STATEMENT_BODY, sizeof buf, buf);
+	write_data_unit(out, STATEMENT_1, STATEMENT_BODY, &data);
+
+	buffer_destroy(&data);
 }
 
 int main()
 {
+	Buffer empty;
 	for(size_t i = 0;; ++i) {
-		write_caption_management_data(stdout, OLD_MANAGEMENT, 0, NULL);
+		buffer_init(&empty, 0);
+		write_caption_management_data(stdout, OLD_MANAGEMENT, &empty);
+		buffer_destroy(&empty);
 		if(i % 10 == 1) {
 			char msg[50];
-			snprintf(msg, 50, "\x1d\x21 pele de cobra %zd \x1d\x21\n", i/10);
+			snprintf(msg, 50, "\x1d\x21 pele de cobra %zd \x1d\x21", i/10);
 			write_full_subtitle(stdout, strlen(msg), msg);
 		}
 		sleep(1);
-	}	
+	}
 }

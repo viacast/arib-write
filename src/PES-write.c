@@ -53,8 +53,10 @@ static void write_PTS(FILE *out)
 	putc(1 | (0b11111110 & (pts << 1)), out);
 }
 
-static void write_single_PES(FILE *out, uint16_t payload_size, const uint8_t *payload)
+static void write_single_PES(FILE *out, Buffer *data)
 {
+	const size_t payload_size = buffer_get_size(data);
+
 	// According to operating guidelines ARIB TR-B14, Fascicle 2, Section 4.2.2,
 	// PES maximum size must be 32 KB. Since header size must be always 35 bytes
 	// (according to ARIB STD-B37, Section 2.2.3.6 (3)), this leaves for payload:
@@ -152,21 +154,21 @@ static void write_single_PES(FILE *out, uint16_t payload_size, const uint8_t *pa
 	// Reserverd ('1111'), PES_data_packet_header_length ('0000')
 	putc(0b11110000, out);
 
-	// Copy the payload
-	fwrite(payload, 1, payload_size, out);
-
+	// Write the payload
+	buffer_write(data, out);
 	fflush(out);
+
 	last_time = time_now();
 }
 
-void PES_write(FILE *out, size_t payload_size,
-	const uint8_t *payload)
+void PES_write(FILE *out, Buffer *data)
 {
-	while(payload_size > 0) {
-		const uint16_t sendsize = (payload_size > 32733)
-			? 32733 : payload_size;
-		write_single_PES(out, sendsize, payload);
-		payload += sendsize;
-		payload_size -= sendsize;
+	while(buffer_get_size(data) > 32733) {
+		Buffer head;
+		buffer_chop_head(data, 32733, &head);
+		write_single_PES(out, &head);
+		buffer_destroy(&head);
 	}
+
+	write_single_PES(out, data);
 }

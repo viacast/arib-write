@@ -2,7 +2,7 @@
 MODULES := \
 	PES-write \
 	arib-write \
-	crc-16 \
+	buffer \
 	data-group
 
 # Comment/uncoment for debug/release build

@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#include "buffer.h"
+
 enum SegType
 {
 	FULL_SEG,
@@ -11,5 +13,4 @@ enum SegType
 typedef enum SegType SegType;
 extern SegType seg_type;
 
-void PES_write(FILE *out, size_t payload_size,
-	const uint8_t *payload);
+void PES_write(FILE *out, Buffer *data);
