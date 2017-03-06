@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 199309L
+﻿#define _POSIX_C_SOURCE 199309L
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
@@ -111,7 +111,6 @@ void buffer_chop_head(Buffer *buf, size_t size, Buffer *head)
 		BLink *nl = alloc_blink(diff);
 		l->size -= diff;
 		memcpy(nl->data, l->data + l->size, diff);
-		realloc(l, l->size + sizeof *l);
 
 		nl->next = l->next;
 		buf->head = nl;
@@ -206,5 +205,4 @@ uint16_t buffer_CRC16(Buffer *buf)
     }
 
 	return crc;
-
 }
