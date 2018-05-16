@@ -2,7 +2,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdio.h>
-#include <assert.h>
 #include <pthread.h>
 #include <iconv.h>
 
