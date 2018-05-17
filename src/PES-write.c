@@ -94,13 +94,13 @@ static void PES_packet(Buffer *data)
 		memcpy(&buf[15], "CCIS", 4);
 
 		// Caption_conversion_type (mobile)
-		buf[16] = 0x04;
+		buf[19] = 0x04;
 
 		// DRCS_conversion_type (mobile DRCS), '111111'
-		buf[17] = 0b10111111;
+		buf[20] = 0b10111111;
 
 		// Unused 10 bytes
-		for(uint8_t i = 18; i < 31; ++i) {
+		for(uint8_t i = 21; i < 31; ++i) {
 			buf[i] = 0xff;
 		}
 	}
