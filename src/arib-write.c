@@ -10,8 +10,7 @@
 #include "PES-write.h"
 #include "data-group.h"
 
-static int sdp_x = 138, 
-					 sdp_y = 100;
+static int sdp_x = 138, sdp_y = 100;
 
 // Encodes a control sequence, which are commands
 // preceeded by Control Sequence Introducer (CSI).
