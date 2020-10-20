@@ -4,10 +4,14 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <iconv.h>
+#include <stdlib.h>
 
 #include "timer.h"
 #include "PES-write.h"
 #include "data-group.h"
+
+static int sdp_x = 138, 
+					 sdp_y = 100;
 
 // Encodes a control sequence, which are commands
 // preceeded by Control Sequence Introducer (CSI).
@@ -71,8 +75,11 @@ static void subtitle_boilerplate(Buffer *data)
 	// Set Writing Format (SWF):
 	i += encode_cs(&buf[i], 0x53, "7");
 
+	char sdp[64];
+	sprintf(sdp, "%03d;%03d", sdp_x, sdp_y);
+
 	// Set Display Position (SDP):
-	i += encode_cs(&buf[i], 0x5f, "138;100");
+	i += encode_cs(&buf[i], 0x5f, sdp);
 
 	// Set Display Format (SDF):
 	i += encode_cs(&buf[i], 0x56, "684;390");
@@ -181,10 +188,22 @@ int main(int argc, char *argv[])
 	extern SegType seg_type;
 	uint8_t debug = 0;
 	for(int i = 1; i < argc; ++i) {
-		if(strcmp(argv[i], "--one-seg") == 0) {
+		if(!strcmp(argv[i], "--one-seg")) {
 			seg_type = ONE_SEG;
-		} else if(strcmp(argv[i], "-d") == 0) {
+		} else if(!strcmp(argv[i], "-d")) {
 			debug = 1;
+		} else if(!strcmp(argv[i], "--sdp-x") || !strcmp(argv[i], "--sdp-y")) {
+			if (argc < i+2) {
+				fprintf(stderr, "Missing SDP parameter for '%s'\n", argv[i]);
+				return -1;
+			}
+			int sdp = atoi(argv[i+1]);
+			if (sdp < 0 || sdp > 999) {
+				fprintf(stderr, "Invalid value for '%s': %d\n", argv[i], sdp);
+				return -1;
+			}
+			if(!strcmp(argv[i], "--sdp-x")) sdp_x = sdp;
+			else sdp_y = sdp;
 		}
 	}
 
