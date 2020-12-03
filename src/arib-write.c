@@ -186,10 +186,11 @@ int main(int argc, char *argv[])
 {
 	extern SegType seg_type;
 	uint8_t debug = 0;
+	int lines = 2;
 	for(int i = 1; i < argc; ++i) {
 		if(!strcmp(argv[i], "--one-seg")) {
 			seg_type = ONE_SEG;
-		} else if(!strcmp(argv[i], "-d")) {
+		} else if(!strcmp(argv[i], "-d") || !strcmp(argv[i], "--debug")) {
 			debug = 1;
 		} else if(!strcmp(argv[i], "--sdp-x") || !strcmp(argv[i], "--sdp-y")) {
 			if (argc < i+2) {
@@ -203,6 +204,15 @@ int main(int argc, char *argv[])
 			}
 			if(!strcmp(argv[i], "--sdp-x")) sdp_x = sdp;
 			else sdp_y = sdp;
+		} else if(!strcmp(argv[i], "--lines")) {
+			if (argc < i+2) {
+				fprintf(stderr, "Missing number of lines\n");
+				return -1;
+			}
+			lines = atoi(argv[i+1]);
+		} else if(!strcmp(argv[i], "--help") || !strcmp(argv[i], "-h")) {
+				fprintf(stderr, "Usage: %s [--one-seg] [--debug/-d] [--sdp-x <sdp_x>] [--sdp-y <sdp_y>] [--lines <lines>]\n", argv[0]);
+				return 0;
 		}
 	}
 
@@ -218,11 +228,11 @@ int main(int argc, char *argv[])
 	iconv_t cd = iconv_open("l1", "utf8");
 
 	for(;;) {
-		char orig[2][4096] = {{0}, {0}};
+		char orig[lines][4096] = {{0}, {0}};
 		char msg[4096];
 		uint16_t count = 0;
 		uint8_t line_count = 0;
-		while(line_count < 2)
+		while(line_count < lines)
 		{
 			uint16_t ncount = count;
 			msg[ncount++] = 0x1c;
