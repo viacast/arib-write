@@ -228,7 +228,10 @@ int main(int argc, char *argv[])
 	iconv_t cd = iconv_open("l1", "utf8");
 
 	for(;;) {
-		char orig[lines][4096] = {{0}, {0}};
+		char orig[lines][4096];
+
+		memset(orig, 0, lines*4096*sizeof(char));
+
 		char msg[4096];
 		uint16_t count = 0;
 		uint8_t line_count = 0;
