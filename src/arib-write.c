@@ -10,7 +10,7 @@
 #include "PES-write.h"
 #include "data-group.h"
 
-static int sdp_x = 138, sdp_y = 100;
+static int sdp_x = 200, sdp_y = 650;
 
 // Encodes a control sequence, which are commands
 // preceeded by Control Sequence Introducer (CSI).
@@ -72,7 +72,7 @@ static void subtitle_boilerplate(Buffer *data)
 	// and are defined in ARIB STD-B24, Table 7-17.
 
 	// Set Writing Format (SWF):
-	i += encode_cs(&buf[i], 0x53, "7");
+	i += encode_cs(&buf[i], 0x53, "5");
 
 	char sdp[64];
 	sprintf(sdp, "%03d;%03d", sdp_x, sdp_y);
@@ -81,7 +81,7 @@ static void subtitle_boilerplate(Buffer *data)
 	i += encode_cs(&buf[i], 0x5f, sdp);
 
 	// Set Display Format (SDF):
-	i += encode_cs(&buf[i], 0x56, "684;390");
+	i += encode_cs(&buf[i], 0x56, "600;270");
 
 	// Character composition dot designation (SSM)
 	i += encode_cs(&buf[i], 0x57, "36;36");
@@ -266,7 +266,11 @@ int main(int argc, char *argv[])
 			++line_count;
 		}
 		if(debug) {
-			fprintf(stderr, "Sending subtitle:\n%s%s\n", orig[0], orig[1]);
+			char sub[4096];
+			for (int i = 0; i < lines; ++i) {
+				strcat(sub, orig[i]);
+			}
+			fprintf(stderr, "Sending subtitle:\n%s\n", sub);
 		}
 		write_full_subtitle(stdout, count, msg);
 	}
