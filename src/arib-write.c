@@ -81,7 +81,7 @@ static void subtitle_boilerplate(Buffer *data)
 	i += encode_cs(&buf[i], 0x5f, sdp);
 
 	// Set Display Format (SDF):
-	i += encode_cs(&buf[i], 0x56, "500;100");
+	i += encode_cs(&buf[i], 0x56, "500;133");
 
 	// Character composition dot designation (SSM)
 	i += encode_cs(&buf[i], 0x57, "36;36");
