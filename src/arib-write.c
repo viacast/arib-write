@@ -72,7 +72,7 @@ static void subtitle_boilerplate(Buffer *data)
 	// and are defined in ARIB STD-B24, Table 7-17.
 
 	// Set Writing Format (SWF):
-	i += encode_cs(&buf[i], 0x53, "5");
+	i += encode_cs(&buf[i], 0x53, "7");
 
 	char sdp[64];
 	sprintf(sdp, "%03d;%03d", sdp_x, sdp_y);
@@ -81,7 +81,7 @@ static void subtitle_boilerplate(Buffer *data)
 	i += encode_cs(&buf[i], 0x5f, sdp);
 
 	// Set Display Format (SDF):
-	i += encode_cs(&buf[i], 0x56, "600;270");
+	i += encode_cs(&buf[i], 0x56, "960;540");
 
 	// Character composition dot designation (SSM)
 	i += encode_cs(&buf[i], 0x57, "36;36");
