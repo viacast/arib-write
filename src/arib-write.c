@@ -10,7 +10,7 @@
 #include "PES-write.h"
 #include "data-group.h"
 
-static int sdp_x = 200, sdp_y = 650;
+static int sdp_x = 150, sdp_y = 350;
 
 // Encodes a control sequence, which are commands
 // preceeded by Control Sequence Introducer (CSI).
@@ -81,7 +81,7 @@ static void subtitle_boilerplate(Buffer *data)
 	i += encode_cs(&buf[i], 0x5f, sdp);
 
 	// Set Display Format (SDF):
-	i += encode_cs(&buf[i], 0x56, "960;540");
+	i += encode_cs(&buf[i], 0x56, "500;100");
 
 	// Character composition dot designation (SSM)
 	i += encode_cs(&buf[i], 0x57, "36;36");
@@ -90,7 +90,7 @@ static void subtitle_boilerplate(Buffer *data)
 	i += encode_cs(&buf[i], 0x58, "2");
 
 	// Set Vertical Spacing (SVS):
-	i += encode_cs(&buf[i], 0x59, "16");
+	i += encode_cs(&buf[i], 0x59, "08");
 	
 	// Raster Colour Command (RCS):
 	i += encode_cs(&buf[i], 0x6e, "8");
