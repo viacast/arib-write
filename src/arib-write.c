@@ -56,8 +56,12 @@ static void *caption_writer_thread(void *par)
 
 static void subtitle_boilerplate(Buffer *data)
 {
-	uint8_t *buf = buffer_prepend(data, 50);
-
+	uint8_t *buf;
+	if (seg_type == FULL_SEG)
+	buf = buffer_prepend(data, 50);
+	else
+	buf = buffer_prepend(data, 11);
+//	extern SegType seg_type;
 	size_t i = 0;
 
 	// Control codes are defined in both ABNT NBR 15606-1, Tabela 13
@@ -67,6 +71,9 @@ static void subtitle_boilerplate(Buffer *data)
 	// CS (clear screen)
 	buf[i++] = 0x0c;
 
+
+
+	if (seg_type == FULL_SEG){
 	// The following are commands started by code
 	// CSI (control sequence introducer),
 	// and are defined in ARIB STD-B24, Table 7-17.
@@ -111,6 +118,27 @@ static void subtitle_boilerplate(Buffer *data)
 	buf[i++] = 0x40;*/
 
 	assert(i == 50);
+	}else{
+	//87 89 0D 0D 0D 0D 0D 0D 0D 0D 0D
+	
+	// WHF (white foreground)
+        buf[i++] = 0x87;
+	
+	// MSZ (Middle Size)
+        buf[i++] = 0x89;
+
+	buf[i++] = 0X0D;
+	buf[i++] = 0X0D;
+	buf[i++] = 0X0D;
+	buf[i++] = 0X0D;
+
+	buf[i++] = 0X0D;
+	buf[i++] = 0X0D;
+	buf[i++] = 0X0D;
+	buf[i++] = 0X0D;
+	assert(i == 11);
+
+	}
 
 	data_unit(STATEMENT_1, STATEMENT_BODY, data);
 }
@@ -238,9 +266,13 @@ int main(int argc, char *argv[])
 		while(line_count < lines)
 		{
 			uint16_t ncount = count;
+			if (seg_type == FULL_SEG){
 			msg[ncount++] = 0x1c;
 			msg[ncount++] = 0x4d + line_count;
 			msg[ncount++] = 0x40;
+			}else{
+			msg[ncount++] = 0x0d;
+			}
 			size_t n;
 			{
 				size_t remsize = 4095 - ncount;
